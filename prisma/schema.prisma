@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Position {
+  C
+  _1B
+  _2B
+  SS
+  _3B
+  OF
+  UTIL
+  SP
+  RP
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  leagueId  String?
+  ottoneuTeamId String?
+  budgetCap Int      @default(400)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rosterSlots RosterSlot[]
+  evaluations Evaluation[]
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  fgId      String?  @unique
+  name      String
+  bats      String?
+  throws    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  positions PlayerPosition[]
+  projections Projection[]
+  rosters RosterSlot[]
+}
+
+model PlayerPosition {
+  id        String   @id @default(cuid())
+  playerId  String
+  position  Position
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([playerId, position])
+}
+
+model Projection {
+  id        String   @id @default(cuid())
+  playerId  String
+  season    Int
+  pointsROS Float   // Rest-of-season points projection
+  pointsVar Float   // variance proxy (volatility)
+  playingTimeRisk Float // 0..1
+  source    String  @default("mock")
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([season])
+  @@index([playerId, season])
+}
+
+model Market {
+  id        String   @id @default(cuid())
+  season    Int
+  playerId  String
+  avgSalary Float
+  lastSalary Float?
+  source    String @default("mock")
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([season, playerId])
+}
+
+model RosterSlot {
+  id        String   @id @default(cuid())
+  teamId    String
+  playerId  String
+  salary    Float
+  isKeeper  Boolean @default(true)
+  acquiredAt DateTime @default(now())
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([teamId])
+  @@index([playerId])
+}
+
+model ReplacementBaseline {
+  id        String   @id @default(cuid())
+  season    Int
+  position  Position
+  pointsROS Float
+  updatedAt DateTime @updatedAt
+
+  @@unique([season, position])
+}
+
+model Evaluation {
+  id        String   @id @default(cuid())
+  teamId    String
+  season    Int
+  runId     String   // identify evaluation run
+  createdAt DateTime @default(now())
+
+  // KPI tree-ish rollups
+  totalSalary Float
+  totalPoints Float
+  totalSurplus Float
+  riskAdjSurplus Float
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  items EvaluationItem[]
+  @@index([teamId, season])
+}
+
+model EvaluationItem {
+  id            String   @id @default(cuid())
+  evaluationId  String
+  playerId      String
+  salary        Float
+  position      Position
+  projPointsROS Float
+  replPointsROS Float
+  rawSurplus    Float
+  riskPenalty   Float
+  riskAdjSurplus Float
+  keepCut       String   // KEEP | CUT | HOLD
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+  player     Player     @relation(fields: [playerId], references: [id])
+
+  @@index([evaluationId])
+  @@index([playerId])
+}

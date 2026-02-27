@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16
+    container_name: ottoneu_gmos_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ottoneu_gmos
+    ports:
+      - "5432:5432"
+    volumes:
+      - ottoneu_gmos_pg:/var/lib/postgresql/data
+volumes:
+  ottoneu_gmos_pg:
